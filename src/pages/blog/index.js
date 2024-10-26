@@ -6,17 +6,19 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import moment from 'moment-jalaali';
+import Header from '@/components/Header';
 
 const fetchPosts = async () => {
   const res = await fetch('/api/posts');
   if (!res.ok) throw new Error('Failed to fetch posts');
   return res.json();
 };
-
+ 
 const Blog = () => {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const token = Cookies.get('token');
+  const [uniqueCategories, setUniqueCategories] = useState([]);
 
   useEffect(() => {
     setIsClient(true);
@@ -25,45 +27,62 @@ const Blog = () => {
   const { data, error, isLoading } = useQuery({
     queryKey: ['posts'],
     queryFn: fetchPosts,
-    enabled: !!token && isClient,
+    enabled: !!token,
   });
 
   useEffect(() => {
-    if (!token && isClient) {
+    console.log('data:', data);
+    if(data)
+      setUniqueCategories([...new Map(data.map(post => [post.categories[0].slug, post.categories[0]])).values()])
+      
+  }, [ data]);
+
+  useEffect(() => {
+    if (!token) {
       router.push('/login');
-    }
+    } 
+      
   }, [token, isClient, router]);
 
   if (!isClient) {
-    return null; // Avoid rendering during SSR
+    return null; 
   }
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>Error loading posts</div>;
 
-  const uniqueCategories = [...new Map(data.map(post => [post.categories[0].slug, post.categories[0]])).values()];
 
   return (
-    <div className="container mx-auto p-4">
+    <>
+    <Header/>
+   
+     <div className="container mx-auto p-4"> 
+      
       <h1 className="text-3xl font-bold mb-6" dir='rtl'>بلاگ</h1>
       <div className="flex flex-col-reverse gap-2 lg:flex-row">
       
         <main className="lg:w-3/4 sm:w-full grid grid-cols-1 gap-4">
-          {data.map(post => (
+          {data?.map(post => (
             <Link href={`/blog/${post.id}`} key={post.id} legacyBehavior>
-              <a className="block p-4 border-cyan-100 border  hover:bg-cyan-50 rounded-2xl">
+              <a className="gap-4 p-4 border-cyan-100 border  hover:bg-cyan-50 rounded-2xl flex ">
                 <Image
                   src={post.featured_media_object.source_url}
                   alt={post.featured_media_object.title}
                   width={post.featured_media_object.media_details.width}
                   height={post.featured_media_object.media_details.height}
-                  className="mb-4 w-full "
+                  className="mb-4 w-56 h-56"
                 />
+                <div className='flex gap-2 flex-col w-100 justify-between'>
                 <h2 className="text-xl font-bold" dir='rtl'>{post.title.rendered}</h2>
                 <p className="text-gray-700" dir='rtl' dangerouslySetInnerHTML={{ __html: post.excerpt.rendered }}></p>
+                <div className='flex justify-between'>
                 <p className="text-gray-400">{moment(post.date).format('jYYYY/jM/jD')}</p>
-                <div className="text-gray-600 bg-sky-200 p-1 rounded-md w-fit ">{post.categories.map(category => category.name).join(', ')}</div>
+                <div className="text-gray-600 bg-sky-200 py-1 px-2 rounded-xl w-fit ">{post.categories.map(category => category.name).join(', ')}</div>
                 
+                </div>
+              
+                </div>
+               
               </a>
             </Link>
           ))}
@@ -82,6 +101,8 @@ const Blog = () => {
         </aside>
       </div>
     </div>
+    </>
+   
   );
 };
 
